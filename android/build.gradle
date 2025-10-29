@@ -1,10 +1,9 @@
-package android
-
 group 'jp.espresso3389.pdf_render'
 version '1.0-SNAPSHOT'
 
 buildscript {
     ext.kotlin_version = '1.9.25'
+
     repositories {
         google()
         mavenCentral()

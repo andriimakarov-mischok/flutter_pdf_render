@@ -36,12 +36,14 @@ jobs:
           sudo apt-get install -y cmake ninja-build
 
       - name: Make build script executable
-        run: chmod +x build_libs.sh verify_alignment.sh
+        run: chmod +x android/build_libs.sh android/verify_alignment.sh
 
       - name: Build native libraries
+        working-directory: ./android
         run: ./build_libs.sh
 
       - name: Verify 16KB alignment
+        working-directory: ./android
         run: ./verify_alignment.sh
 
       - name: Upload build artifacts

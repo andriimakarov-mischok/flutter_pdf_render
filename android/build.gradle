@@ -32,12 +32,12 @@ android {
     
     compileSdkVersion 34
 
-    externalNativeBuild {
-        cmake {
-            path "CMakeLists.txt"
-            version "3.22.1"
-        }
-    }
+//    externalNativeBuild {
+//        cmake {
+//            path "CMakeLists.txt"
+//            version "3.22.1"
+//        }
+//    }
 
     defaultConfig {
         minSdkVersion 21
@@ -47,12 +47,12 @@ android {
             abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
         }
 
-        externalNativeBuild {
-            cmake {
-                arguments "-DANDROID_STL=c++_shared"
-                cppFlags "-std=c++17 -O2"
-            }
-        }
+//        externalNativeBuild {
+//            cmake {
+//                arguments "-DANDROID_STL=c++_shared"
+//                cppFlags "-std=c++17 -O2"
+//            }
+//        }
     }
 
     buildTypes {
@@ -134,7 +134,7 @@ task verifyPageAlignment(type: Exec) {
 }
 
 // Make sure .so files are built before compiling Kotlin/Java
-preBuild.dependsOn(buildBbhelper)
+preBuild.dependsOn(buildNativeLibs)
 
 // Optionally run verification after build (can be disabled if needed)
 preBuild.finalizedBy(verifyPageAlignment)

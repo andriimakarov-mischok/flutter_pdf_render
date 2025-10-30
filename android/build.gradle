@@ -133,11 +133,6 @@ task verifyPageAlignment(type: Exec) {
     }
 }
 
-task buildBbhelper(type: Exec) {
-    workingDir "$projectDir"
-    commandLine 'bash', 'build_libs.sh'
-}
-
 // Make sure .so files are built before compiling Kotlin/Java
 preBuild.dependsOn(buildBbhelper)
 

@@ -1,0 +1,97 @@
+name: Build Native Libraries
+
+on:
+  push:
+    branches: [ master, main, develop ]
+  pull_request:
+    branches: [ master, main, develop ]
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  build-native-libs:
+    name: Build and Verify Native Libraries
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK
+        run: |
+          echo "y" | sdkmanager "ndk;27.3.13750724"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.3.13750724" >> $GITHUB_ENV
+
+      - name: Install Build Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build
+
+      - name: Make build script executable
+        run: chmod +x build_libs.sh verify_alignment.sh
+
+      - name: Build native libraries
+        run: ./build_libs.sh
+
+      - name: Verify 16KB alignment
+        run: ./verify_alignment.sh
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-libraries
+          path: src/main/jniLibs/**/*.so
+          retention-days: 30
+
+      - name: Create build summary
+        if: always()
+        run: |
+          echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Built Libraries" >> $GITHUB_STEP_SUMMARY
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            if [ -f "src/main/jniLibs/$abi/libbbhelper.so" ]; then
+              size=$(ls -lh "src/main/jniLibs/$abi/libbbhelper.so" | awk '{print $5}')
+              echo "- ✅ **$abi**: $size" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- ❌ **$abi**: Not built" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let comment = '## 🔨 Native Library Build Results\n\n';
+            comment += '### Built Libraries\n';
+            
+            const abis = ['arm64-v8a', 'armeabi-v7a', 'x86_64'];
+            for (const abi of abis) {
+              const path = `src/main/jniLibs/${abi}/libbbhelper.so`;
+              if (fs.existsSync(path)) {
+                const stats = fs.statSync(path);
+                const size = (stats.size / 1024).toFixed(2);
+                comment += `- ✅ **${abi}**: ${size} KB\n`;
+              } else {
+                comment += `- ❌ **${abi}**: Build failed\n`;
+              }
+            }
+            
+            comment += '\n✅ All libraries built with 16KB page alignment for Google Play compliance.';
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });

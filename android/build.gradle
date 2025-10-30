@@ -83,6 +83,67 @@ android {
     }
 }
 
+
+// Determine OS and set appropriate build script
+def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
+def buildScriptName = isWindows ? 'build_libs.bat' : 'build_libs.sh'
+def buildScriptPath = "$projectDir/$buildScriptName"
+
+// Task to build native libraries with automatic script detection
+task buildNativeLibs(type: Exec) {
+    description = 'Builds native .so libraries with 16KB page alignment'
+    group = 'build'
+
+    workingDir projectDir
+
+    if (isWindows) {
+        commandLine 'cmd', '/c', buildScriptName
+    } else {
+        // Make script executable on Unix systems
+        doFirst {
+            file(buildScriptPath).setExecutable(true)
+        }
+        commandLine 'bash', buildScriptName
+    }
+}
+
+// Task to verify 16KB alignment after build
+task verifyPageAlignment(type: Exec) {
+    description = 'Verifies 16KB page alignment in built .so files'
+    group = 'verification'
+    dependsOn buildNativeLibs
+
+    workingDir projectDir
+
+    if (isWindows) {
+        commandLine 'cmd', '/c', 'verify_alignment.bat'
+    } else {
+        doFirst {
+            file("$projectDir/verify_alignment.sh").setExecutable(true)
+        }
+        commandLine 'bash', 'verify_alignment.sh'
+    }
+
+    // Only verify if script exists
+    onlyIf {
+        def verifyScript = isWindows ?
+                file("$projectDir/verify_alignment.bat") :
+                file("$projectDir/verify_alignment.sh")
+        verifyScript.exists()
+    }
+}
+
+task buildBbhelper(type: Exec) {
+    workingDir "$projectDir"
+    commandLine 'bash', 'build_libs.sh'
+}
+
+// Make sure .so files are built before compiling Kotlin/Java
+preBuild.dependsOn(buildBbhelper)
+
+// Optionally run verification after build (can be disabled if needed)
+preBuild.finalizedBy(verifyPageAlignment)
+
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 }

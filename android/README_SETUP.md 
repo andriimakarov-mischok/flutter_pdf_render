@@ -1,0 +1,212 @@
+# Native Library Build Setup
+
+This project builds native Android libraries with **16KB page alignment** to meet Google Play's requirements for 2025+.
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+**All Platforms:**
+- Android SDK installed
+- Android NDK 27.3.13750724 (auto-installed if missing)
+- CMake 3.22.1 or higher
+- Ninja build system
+
+**Linux/macOS:**
+```bash
+# Ubuntu/Debian
+sudo apt-get install cmake ninja-build
+
+# macOS
+brew install cmake ninja
+```
+
+**Windows:**
+```powershell
+# Using Chocolatey
+choco install cmake ninja
+
+# Or download from:
+# - CMake: https://cmake.org/download/
+# - Ninja: https://ninja-build.org/
+```
+
+### Building
+
+**Automatic build (happens when you build your Flutter app):**
+```bash
+# The build script runs automatically when you:
+cd your-igl-app
+flutter build apk
+# or
+flutter build appbundle
+```
+
+**Manual build (for development/testing):**
+```bash
+# Navigate to the android directory first
+cd flutter_pdf_render/android
+
+# Then run the build script
+# Linux/macOS
+./build_libs.sh
+
+# Windows
+build_libs.bat
+```
+
+### Verification
+
+Check that libraries meet 16KB alignment:
+
+```bash
+# Linux/macOS
+./verify_alignment.sh
+
+# Windows
+verify_alignment.bat
+```
+
+## 📁 Project Structure
+
+```
+.
+├── CMakeLists.txt              # CMake configuration with 16KB alignment
+├── build.gradle                # Gradle build file (auto-runs build script)
+├── build_libs.sh               # Unix build script
+├── build_libs.bat              # Windows build script
+├── verify_alignment.sh         # Unix verification script
+├── verify_alignment.bat        # Windows verification script
+├── c++/                        # Native source code
+│   └── directBufferAndroid.cpp
+└── src/main/jniLibs/           # Built .so files (generated)
+    ├── arm64-v8a/
+    ├── armeabi-v7a/
+    └── x86_64/
+```
+
+## 🔧 How It Works
+
+### 1. **CMake Configuration**
+- Sets `CMAKE_SHARED_LINKER_FLAGS` with `-Wl,-z,max-page-size=0x4000`
+- Applies 16KB (0x4000) alignment to ARM architectures
+- Ensures compliance with [Google Play's 16KB page size requirement](https://developer.android.com/guide/practices/page-sizes)
+
+### 2. **Automated Build**
+- `build.gradle` detects your OS (Windows/Unix)
+- Runs appropriate build script before compilation
+- Builds for: `arm64-v8a`, `armeabi-v7a`, `x86_64`
+
+### 3. **Verification**
+- Uses `readelf` to check ELF headers
+- Validates that LOAD segments have ≥16KB alignment
+- Ensures Google Play compliance
+
+## 🎯 Using in Your Flutter Project
+
+```yaml
+dependencies:
+  pdf_render:
+    git:
+      url: https://github.com/andriimakarov-mischok/flutter_pdf_render.git
+      ref: master
+```
+
+### First Time Setup
+
+1. **Clone and setup:**
+   ```bash
+   cd flutter_pdf_render/android
+   chmod +x build_libs.sh verify_alignment.sh
+   ./build_libs.sh
+   ./verify_alignment.sh
+   ```
+
+2. **Commit the built libraries:**
+   ```bash
+   git add src/main/jniLibs/
+   git commit -m "Add 16KB aligned native libraries"
+   git push origin master
+   ```
+
+3. **Update your main app:**
+   ```bash
+   cd your-flutter-app
+   flutter pub upgrade pdf_render
+   flutter clean
+   flutter pub get
+   ```
+
+## 🤖 CI/CD Integration
+
+### GitHub Actions (Recommended)
+
+1. Create `.github/workflows/build.yml` in your repository
+2. Copy the provided GitHub Actions workflow
+3. Pushes to `master` will auto-build and verify libraries
+4. Artifacts uploaded for 30 days
+
+### Local Development
+
+The build happens automatically when you:
+- Run `./gradlew build`
+- Build your Flutter app with `flutter build apk`
+- Open the project in Android Studio (triggers Gradle sync)
+
+## ✅ Verification Checklist
+
+After building, verify:
+
+- [ ] All three ABIs built successfully
+- [ ] `verify_alignment.sh` passes for ARM architectures
+- [ ] Libraries exist in `src/main/jniLibs/*/libbbhelper.so`
+- [ ] Your Flutter app builds without errors
+- [ ] App installs and runs on Android 15+ devices
+
+## 🐛 Troubleshooting
+
+### "NDK not found"
+```bash
+# Set environment variable
+export ANDROID_NDK_HOME=/path/to/ndk/27.3.13750724
+```
+
+### "CMake not found"
+Install CMake 3.22.1+:
+- Linux: `sudo apt-get install cmake`
+- macOS: `brew install cmake`
+- Windows: Download from https://cmake.org
+
+### "Ninja not found"
+Install Ninja:
+- Linux: `sudo apt-get install ninja-build`
+- macOS: `brew install ninja`
+- Windows: `choco install ninja`
+
+### Build fails on Windows
+- Use **Git Bash** or **WSL** for bash scripts
+- Or use the `.bat` versions directly
+- Ensure NDK path doesn't contain spaces
+
+### Alignment verification fails
+1. Check CMake output for warnings
+2. Ensure you're using NDK 27.3.13750724+
+3. Rebuild: `./gradlew clean && ./gradlew build`
+4. Manually check: `readelf -l libbbhelper.so | grep Align`
+
+## 📚 Resources
+
+- [Google Play 16KB Page Size Guide](https://developer.android.com/guide/practices/page-sizes)
+- [Android NDK Documentation](https://developer.android.com/ndk)
+- [CMake Android Toolchain](https://developer.android.com/ndk/guides/cmake)
+
+## 📝 Notes
+
+- **16KB alignment** is required for ARM devices with 16KB page sizes (some Android 15+ devices)
+- **x86_64** doesn't require special alignment but is included for emulator support
+- Libraries are built with **Release configuration** and **C++17**
+- The build is **fully automated** - just commit and push!
+
+---
+
+**Need help?** Check the build logs or run verification scripts for detailed diagnostics.

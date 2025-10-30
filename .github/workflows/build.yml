@@ -50,7 +50,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: native-libraries
-          path: src/main/jniLibs/**/*.so
+          path: android/src/main/jniLibs/**/*.so
           retention-days: 30
 
       - name: Create build summary
@@ -60,8 +60,8 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Built Libraries" >> $GITHUB_STEP_SUMMARY
           for abi in arm64-v8a armeabi-v7a x86_64; do
-            if [ -f "src/main/jniLibs/$abi/libbbhelper.so" ]; then
-              size=$(ls -lh "src/main/jniLibs/$abi/libbbhelper.so" | awk '{print $5}')
+            if [ -f "android/src/main/jniLibs/$abi/libbbhelper.so" ]; then
+              size=$(ls -lh "android/src/main/jniLibs/$abi/libbbhelper.so" | awk '{print $5}')
               echo "- ✅ **$abi**: $size" >> $GITHUB_STEP_SUMMARY
             else
               echo "- ❌ **$abi**: Not built" >> $GITHUB_STEP_SUMMARY
@@ -79,7 +79,7 @@ jobs:
             
             const abis = ['arm64-v8a', 'armeabi-v7a', 'x86_64'];
             for (const abi of abis) {
-              const path = `src/main/jniLibs/${abi}/libbbhelper.so`;
+              const path = `android/src/main/jniLibs/${abi}/libbbhelper.so`;
               if (fs.existsSync(path)) {
                 const stats = fs.statSync(path);
                 const size = (stats.size / 1024).toFixed(2);

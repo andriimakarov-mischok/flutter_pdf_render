@@ -140,6 +140,30 @@ for ABI in "${ABIS[@]}"; do
         mkdir -p "$JNI_LIBS_DIR/$ABI"
         cp libbbhelper.so "$JNI_LIBS_DIR/$ABI/"
         echo "✅ Successfully built and copied libbbhelper.so for $ABI"
+
+        # CRITICAL: Also copy libc++_shared.so from NDK
+        STL_LIB="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/$ABI/libc++_shared.so"
+        if [ "$OS" = "darwin" ]; then
+            STL_LIB="$NDK_DIR/toolchains/llvm/prebuilt/darwin-x86_64/sysroot/usr/lib/$ABI/libc++_shared.so"
+        fi
+
+        if [ -f "$STL_LIB" ]; then
+            cp "$STL_LIB" "$JNI_LIBS_DIR/$ABI/"
+            echo "✅ Copied libc++_shared.so for $ABI"
+        else
+            echo "⚠️  Warning: libc++_shared.so not found at $STL_LIB"
+            echo "   Trying alternative locations..."
+
+            # Try alternative NDK structure
+            for HOST in linux-x86_64 darwin-x86_64; do
+                ALT_STL="$NDK_DIR/toolchains/llvm/prebuilt/$HOST/sysroot/usr/lib/$ABI/libc++_shared.so"
+                if [ -f "$ALT_STL" ]; then
+                    cp "$ALT_STL" "$JNI_LIBS_DIR/$ABI/"
+                    echo "✅ Found and copied libc++_shared.so from $HOST"
+                    break
+                fi
+            done
+        fi
     else
         echo "❌ libbbhelper.so not found for $ABI"
         BUILD_SUCCESS=false

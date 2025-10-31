@@ -46,6 +46,12 @@ android {
                 cppFlags "-std=c++17 -O2"
             }
         }
+
+        packagingOptions {
+            jniLibs {
+                useLegacyPackaging = false
+            }
+        }
     }
 
     buildTypes {

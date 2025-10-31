@@ -142,27 +142,56 @@ for ABI in "${ABIS[@]}"; do
         echo "✅ Successfully built and copied libbbhelper.so for $ABI"
 
         # CRITICAL: Also copy libc++_shared.so from NDK
-        STL_LIB="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/$ABI/libc++_shared.so"
-        if [ "$OS" = "darwin" ]; then
-            STL_LIB="$NDK_DIR/toolchains/llvm/prebuilt/darwin-x86_64/sysroot/usr/lib/$ABI/libc++_shared.so"
-        fi
+        
+        # NDK folder structure for ABIs is not the same as ABI names
+        # Corrected to remove invalid 'local' keyword.
+        TARGET_TRIPLET=""
+        case "$ABI" in
+            "armeabi-v7a")
+                TARGET_TRIPLET="armv7a-linux-androideabi"
+                ;;
+            "arm64-v8a")
+                TARGET_TRIPLET="aarch64-linux-android"
+                ;;
+            "x86")
+                TARGET_TRIPLET="i686-linux-android"
+                ;;
+            "x86_64")
+                TARGET_TRIPLET="x86_64-linux-android"
+                ;;
+            *)
+                echo "❌ Unhandled ABI for STL copy: $ABI"
+                BUILD_SUCCESS=false
+                continue
+                ;;
+        esac
 
-        if [ -f "$STL_LIB" ]; then
-            cp "$STL_LIB" "$JNI_LIBS_DIR/$ABI/"
-            echo "✅ Copied libc++_shared.so for $ABI"
-        else
-            echo "⚠️  Warning: libc++_shared.so not found at $STL_LIB"
-            echo "   Trying alternative locations..."
+        FOUND_STL=false
+        # Try to find the STL library in a few common locations
+        for HOST in linux-x86_64 darwin-x86_64 darwin-aarch64; do
+            # Path with API level (newer NDKs)
+            STL_LIB="$NDK_DIR/toolchains/llvm/prebuilt/$HOST/sysroot/usr/lib/$TARGET_TRIPLET/21/libc++_shared.so"
+            if [ -f "$STL_LIB" ]; then
+                cp "$STL_LIB" "$JNI_LIBS_DIR/$ABI/"
+                echo "✅ Copied libc++_shared.so for $ABI"
+                FOUND_STL=true
+                break
+            fi
+            # Path without API level (older NDKs)
+            STL_LIB="$NDK_DIR/toolchains/llvm/prebuilt/$HOST/sysroot/usr/lib/$TARGET_TRIPLET/libc++_shared.so"
+            if [ -f "$STL_LIB" ]; then
+                cp "$STL_LIB" "$JNI_LIBS_DIR/$ABI/"
+                echo "✅ Copied libc++_shared.so for $ABI"
+                FOUND_STL=true
+                break
+            fi
+        done
 
-            # Try alternative NDK structure
-            for HOST in linux-x86_64 darwin-x86_64; do
-                ALT_STL="$NDK_DIR/toolchains/llvm/prebuilt/$HOST/sysroot/usr/lib/$ABI/libc++_shared.so"
-                if [ -f "$ALT_STL" ]; then
-                    cp "$ALT_STL" "$JNI_LIBS_DIR/$ABI/"
-                    echo "✅ Found and copied libc++_shared.so from $HOST"
-                    break
-                fi
-            done
+        if [ "$FOUND_STL" = false ]; then
+            echo "⚠️  Warning: libc++_shared.so not found for $ABI"
+            echo "   This might cause runtime errors if your app uses it."
+            # Depending on strictness, you might want to fail the build:
+            # BUILD_SUCCESS=false
         fi
     else
         echo "❌ libbbhelper.so not found for $ABI"

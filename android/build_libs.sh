@@ -141,10 +141,7 @@ for ABI in "${ABIS[@]}"; do
         cp libbbhelper.so "$JNI_LIBS_DIR/$ABI/"
         echo "✅ Successfully built and copied libbbhelper.so for $ABI"
 
-        # CRITICAL: Also copy libc++_shared.so from NDK
-        
         # NDK folder structure for ABIs is not the same as ABI names
-        # Corrected to remove invalid 'local' keyword.
         TARGET_TRIPLET=""
         case "$ABI" in
             "armeabi-v7a")
@@ -167,32 +164,29 @@ for ABI in "${ABIS[@]}"; do
         esac
 
         FOUND_STL=false
-        # Try to find the STL library in a few common locations
         for HOST in linux-x86_64 darwin-x86_64 darwin-aarch64; do
-            # Path with API level (newer NDKs)
-            STL_LIB="$NDK_DIR/toolchains/llvm/prebuilt/$HOST/sysroot/usr/lib/$TARGET_TRIPLET/21/libc++_shared.so"
-            if [ -f "$STL_LIB" ]; then
-                cp "$STL_LIB" "$JNI_LIBS_DIR/$ABI/"
-                echo "✅ Copied libc++_shared.so for $ABI"
-                FOUND_STL=true
-                break
-            fi
-            # Path without API level (older NDKs)
-            STL_LIB="$NDK_DIR/toolchains/llvm/prebuilt/$HOST/sysroot/usr/lib/$TARGET_TRIPLET/libc++_shared.so"
-            if [ -f "$STL_LIB" ]; then
-                cp "$STL_LIB" "$JNI_LIBS_DIR/$ABI/"
-                echo "✅ Copied libc++_shared.so for $ABI"
-                FOUND_STL=true
-                break
-            fi
+            # Try multiple search locations for libc++_shared.so
+            for CANDIDATE in \
+                "$NDK_DIR/toolchains/llvm/prebuilt/$HOST/sysroot/usr/lib/$TARGET_TRIPLET/21/libc++_shared.so" \
+                "$NDK_DIR/toolchains/llvm/prebuilt/$HOST/sysroot/usr/lib/$TARGET_TRIPLET/libc++_shared.so" \
+                "$NDK_DIR/toolchains/llvm/prebuilt/$HOST/sysroot/usr/lib/arm-linux-androideabi/21/libc++_shared.so" \
+                "$NDK_DIR/toolchains/llvm/prebuilt/$HOST/sysroot/usr/lib/arm-linux-androideabi/libc++_shared.so" \
+                "$NDK_DIR/sources/cxx-stl/llvm-libc++/libs/$ABI/libc++_shared.so"; do
+                if [ -f "$CANDIDATE" ]; then
+                    cp "$CANDIDATE" "$JNI_LIBS_DIR/$ABI/"
+                    echo "✅ Copied libc++_shared.so for $ABI from:"
+                    echo "   $CANDIDATE"
+                    FOUND_STL=true
+                    break 2
+                fi
+            done
         done
 
         if [ "$FOUND_STL" = false ]; then
             echo "⚠️  Warning: libc++_shared.so not found for $ABI"
             echo "   This might cause runtime errors if your app uses it."
-            # Depending on strictness, you might want to fail the build:
-            # BUILD_SUCCESS=false
         fi
+
     else
         echo "❌ libbbhelper.so not found for $ABI"
         BUILD_SUCCESS=false
